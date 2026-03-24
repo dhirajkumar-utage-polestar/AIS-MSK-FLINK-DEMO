@@ -1,0 +1,6 @@
+# Flink 1.19 with S3 (s3a) plugin enabled for MinIO/S3 compatibility
+FROM flink:1.19.1-scala_2.12-java11
+
+# Enable the S3 HA/FileSystem plugin — move from opt/ to plugins/
+RUN mkdir -p /opt/flink/plugins/s3-fs-hadoop && \
+    cp /opt/flink/opt/flink-s3-fs-hadoop-*.jar /opt/flink/plugins/s3-fs-hadoop/

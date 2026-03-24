@@ -1,0 +1,136 @@
+enums:
+  nav_status:
+    0: "under_way_using_engine"
+    1: "at_anchor"
+    2: "not_under_command"
+    3: "restricted_maneuverability"
+    4: "constrained_by_draught"
+    5: "moored"
+    6: "aground"
+    7: "engaged_in_fishing"
+    8: "under_way_sailing"
+    9: "reserved_hsc"
+    10: "reserved_wig"
+    11: "reserved"
+    12: "reserved"
+    13: "reserved"
+    14: "ais_sart"
+    15: "not_defined"
+
+  position_accuracy:
+    0: "low"
+    1: "high"
+
+  raim:
+    0: "not_in_use"
+    1: "in_use"
+
+  ship_type:
+    0: "not_available"
+    "1-19": "reserved"
+    "20-28": "wing_in_ground"
+    29: "reserved"
+    30: "fishing"
+    31: "towing"
+    32: "towing_large"
+    33: "dredging"
+    34: "diving"
+    35: "military"
+    36: "sailing"
+    37: "pleasure"
+    "38-39": "reserved"
+    "40-49": "high_speed_craft"
+    50: "pilot"
+    51: "search_rescue"
+    52: "tug"
+    53: "port_tender"
+    54: "anti_pollution"
+    55: "law_enforcement"
+    "56-57": "local"
+    58: "medical_transport"
+    59: "noncombatant"
+    "60-69": "passenger"
+    "70-79": "cargo"
+    "80-89": "tanker"
+    "90-99": "other"
+
+  maneuver_indicator:
+    0: "not_available"
+    1: "no_special_maneuver"
+    2: "special_maneuver"
+
+  epfd_type:
+    0: "undefined"
+    1: "gps"
+    2: "glonass"
+    3: "combined_gps_glonass"
+    4: "loran_c"
+    5: "chayka"
+    6: "integrated_navigation_system"
+    7: "surveyed"
+    8: "galileo"
+
+  yes_no:
+    0: "no"
+    1: "yes"
+
+ranges:
+  mmsi:
+    min: 100000000
+    max: 999999999
+
+  latitude:
+    min: -90.0
+    max: 90.0
+    allow_null: true
+
+  longitude:
+    min: -180.0
+    max: 180.0
+    allow_null: true
+
+  sog:
+    min: 0.0
+    max: 102.2
+    reserved: [102.3]
+    allow_null: true
+
+  cog:
+    min: 0.0
+    max: 359.9
+    reserved: [360.0]
+    allow_null: true
+
+  true_heading:
+    min: 0
+    max: 359
+    reserved: [511]
+    allow_null: true
+
+  rate_of_turn_raw:
+    min: -128
+    max: 127
+    allow_null: true
+
+  timestamp_utc_sec:
+    min: 0
+    max: 63
+    allow_null: true
+
+  draught:
+    min: 0.0
+    max: 25.5
+    allow_null: true
+
+  imo_number:
+    min: 1000000
+    max: 9999999
+    allow_null: true
+
+quality_rules:
+  error_violations:
+    - MSG_ID_CONST
+    - MMSI_FORMAT
+    - MMSI_RANGE
+    - LAT_RANGE
+    - LON_RANGE

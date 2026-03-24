@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1350" height="800" viewBox="0 0 1350 800">
+  <defs>
+    <marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0,10 3.5,0 7" fill="#546E7A"/>
+    </marker>
+    <filter id="sh">
+      <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#00000020"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1350" height="800" fill="#ECEFF1"/>
+
+  <!-- Title -->
+  <rect x="0" y="0" width="1350" height="50" fill="#1A237E"/>
+  <text x="675" y="22" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="bold" fill="white">AIS Pipeline — Architecture, Scalability, Fault Tolerance, Error Handling &amp; Retention</text>
+  <text x="675" y="41" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#9FA8DA">Left: Pipeline Overview  ·  Right: Cross-cutting Concerns  ·  ✓ In Place  ·  ⚠ Fix Needed</text>
+
+  <!-- ═══════════════════════════════════════
+       LEFT PANEL — Condensed Pipeline
+       x=15 to x=500
+  ═══════════════════════════════════════ -->
+
+  <rect x="15" y="55" width="485" height="695" fill="#F5F7FA" rx="6" stroke="#CFD8DC" stroke-width="1"/>
+  <text x="257" y="72" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="bold" fill="#37474F">Pipeline Overview</text>
+
+  <!-- Vendors -->
+  <rect x="25" y="80" width="465" height="40" fill="#E3F2FD" rx="5" stroke="#1565C0" stroke-width="1.5"/>
+  <rect x="25" y="80" width="465" height="16" fill="#1565C0" rx="5"/>
+  <rect x="25" y="88"  width="465" height="8"  fill="#1565C0"/>
+  <text x="257" y="91"  text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="white">AIS Data Vendors</text>
+  <text x="257" y="111" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#0D47A1">Spire (T·S·R)  ·  Orbcomm (T·S·R·PT)  ·  Kpler (T·S·R)</text>
+
+  <line x1="257" y1="120" x2="257" y2="128" stroke="#546E7A" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Receivers -->
+  <rect x="25" y="128" width="465" height="36" fill="#E8F5E9" rx="5" stroke="#2E7D32" stroke-width="1.5"/>
+  <rect x="25" y="128" width="465" height="16" fill="#2E7D32" rx="5"/>
+  <rect x="25" y="136" width="465" height="8"  fill="#2E7D32"/>
+  <text x="257" y="139" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="white">psd-ais-receiver  (Go · Kubernetes · 5 pods)</text>
+  <text x="257" y="156" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#1B5E20">TCP/TLS · tag block parse · source map · fragment TTL · dual write</text>
+
+  <!-- Branch arrows -->
+  <line x1="130" y1="164" x2="130" y2="172" stroke="#546E7A" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="380" y1="164" x2="380" y2="172" stroke="#546E7A" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- S3 raw + MSK raw -->
+  <rect x="25"  y="172" width="210" height="32" fill="#E0F2F1" rx="4" stroke="#00695C" stroke-width="1.5"/>
+  <text x="130" y="184" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="bold" fill="#004D40">S3: ais-raw/</text>
+  <text x="130" y="197" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="8" fill="#546E7A">NMEA archive · Hive partition</text>
+
+  <rect x="247" y="172" width="243" height="32" fill="#FFF3E0" rx="4" stroke="#E65100" stroke-width="1.5"/>
+  <text x="368" y="184" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="bold" fill="#BF360C">MSK: ais.raw.nmea</text>
+  <text x="368" y="197" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="8" fill="#546E7A">12 partitions · 7-day retention</text>
+
+  <!-- Elbow: MSK raw → Job 1 -->
+  <path d="M 368,204 L 368,214 L 257,214 L 257,218" stroke="#546E7A" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+
+  <!-- Job 1 -->
+  <rect x="25" y="218" width="465" height="68" fill="white" rx="5" stroke="#4527A0" stroke-width="2" filter="url(#sh)"/>
+  <rect x="25" y="218" width="465" height="18" fill="#4527A0" rx="5"/>
+  <rect x="25" y="228" width="465" height="8"  fill="#4527A0"/>
+  <text x="257" y="229" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="white">Flink Job 1 — Parser + Validation  ✓ Built</text>
+  <text x="257" y="248" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#4527A0">NMEANorm → FragAssembler → NMEAParser → ASMDecoder → Type24Joiner → ValidationEngine</text>
+  <text x="257" y="262" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">Checkpoint 60s  ·  ListState/ValueState  ·  parallelism=12 (prod)</text>
+  <text x="257" y="276" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">Parquet: ReflectData.AllowNull · SNAPPY · OnCheckpoint rolling</text>
+
+  <!-- Branch arrows from Job 1 -->
+  <line x1="130" y1="286" x2="130" y2="296" stroke="#546E7A" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="380" y1="286" x2="380" y2="296" stroke="#546E7A" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- S3 Bronze + MSK ingest -->
+  <rect x="25"  y="296" width="210" height="34" fill="#E0F2F1" rx="4" stroke="#00695C" stroke-width="1.5"/>
+  <text x="130" y="309" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="bold" fill="#004D40">S3: ais-bronze/  (Bronze)</text>
+  <text x="130" y="322" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="8" fill="#546E7A">Parquet · 130+ cols · year/mo/day/hr</text>
+
+  <rect x="247" y="296" width="243" height="34" fill="#FFF3E0" rx="4" stroke="#E65100" stroke-width="1.5"/>
+  <text x="368" y="309" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="bold" fill="#BF360C">MSK: ais.ingest  (12p · JSON)</text>
+  <text x="368" y="322" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="8" fill="#546E7A">acks=all · idempotent · at-least-once</text>
+
+  <!-- Elbow: MSK ingest → Job 2 -->
+  <path d="M 368,330 L 368,340 L 257,340 L 257,344" stroke="#546E7A" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+
+  <!-- Job 2 -->
+  <rect x="25" y="344" width="465" height="60" fill="white" rx="5" stroke="#6A1B9A" stroke-width="2" filter="url(#sh)"/>
+  <rect x="25" y="344" width="465" height="18" fill="#6A1B9A" rx="5"/>
+  <rect x="25" y="354" width="465" height="8"  fill="#6A1B9A"/>
+  <text x="257" y="355" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="white">Flink Job 2 — Router  ○ Planned</text>
+  <text x="257" y="374" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#6A1B9A">1,2,3,18,19,27 → positions (~85%)   ·   5,24 → vessel_static (~10%)</text>
+  <text x="257" y="388" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">21 → aid_to_nav (~3%)   ·   4,6–17,20,22–26 → other_messages (~2%)</text>
+
+  <!-- Branch arrows from Job 2 -->
+  <line x1="130" y1="404" x2="130" y2="414" stroke="#546E7A" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="380" y1="404" x2="380" y2="414" stroke="#546E7A" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- S3 Stage + MSK stage -->
+  <rect x="25"  y="414" width="210" height="34" fill="#E0F2F1" rx="4" stroke="#00695C" stroke-width="1.5"/>
+  <text x="130" y="427" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="bold" fill="#004D40">S3: ais-stage/  (4 tables)</text>
+  <text x="130" y="440" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="8" fill="#546E7A">Parquet · schema-fixed · all records</text>
+
+  <rect x="247" y="414" width="243" height="34" fill="#FFF3E0" rx="4" stroke="#E65100" stroke-width="1.5"/>
+  <text x="368" y="427" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="bold" fill="#BF360C">MSK: ais.stage.*  (4 topics)</text>
+  <text x="368" y="440" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="8" fill="#546E7A">positions 12p · others 4p · 7-day</text>
+
+  <!-- Elbow: MSK stage → Job 3 -->
+  <path d="M 368,448 L 368,458 L 257,458 L 257,462" stroke="#546E7A" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+
+  <!-- Job 3 -->
+  <rect x="25" y="462" width="465" height="46" fill="white" rx="5" stroke="#1565C0" stroke-width="2" filter="url(#sh)"/>
+  <rect x="25" y="462" width="465" height="18" fill="#1565C0" rx="5"/>
+  <rect x="25" y="472" width="465" height="8"  fill="#1565C0"/>
+  <text x="257" y="473" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="white">Flink Job 3 — Quality Filter  ○ Planned</text>
+  <text x="257" y="492" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#1565C0">GOOD + WARN → PASS to raw_production   ·   ERROR → REJECT (kept in Stage)</text>
+  <text x="257" y="502" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="8" fill="#546E7A">Exactly-once via Iceberg ACID · configurable quality threshold</text>
+
+  <line x1="257" y1="508" x2="257" y2="518" stroke="#546E7A" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Iceberg -->
+  <rect x="25" y="518" width="465" height="44" fill="#E8EAF6" rx="5" stroke="#283593" stroke-width="1.5"/>
+  <rect x="25" y="518" width="465" height="17" fill="#283593" rx="5"/>
+  <rect x="25" y="527" width="465" height="8"  fill="#283593"/>
+  <text x="257" y="528" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="white">Apache Iceberg — raw_production  (Gold)</text>
+  <text x="257" y="545" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#283593">ais_position_reports  ·  ais_vessel_static_data  ·  ais_aid_to_navigation  ·  ais_other_messages</text>
+  <text x="257" y="557" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="8" fill="#546E7A">ACID · Time travel · Schema evolution · Glue Catalog</text>
+
+  <line x1="257" y1="562" x2="257" y2="572" stroke="#546E7A" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Downstream -->
+  <rect x="25" y="572" width="465" height="34" fill="#ECEFF1" rx="5" stroke="#90A4AE" stroke-width="1.5"/>
+  <text x="257" y="585" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="bold" fill="#37474F">Downstream Consumers</text>
+  <text x="257" y="598" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">Athena (ad-hoc SQL)  ·  Tier 2: VUID (future)  ·  Tier 3: Fusion (future)</text>
+
+  <!-- Deployment note at bottom of left panel -->
+  <rect x="25" y="618" width="465" height="118" fill="#F8F8F8" rx="5" stroke="#CFD8DC" stroke-width="1"/>
+  <text x="257" y="633" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="bold" fill="#37474F">Deployment</text>
+  <text x="35"  y="648" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">• KDA (AWS Kinesis Data Analytics for Apache Flink)</text>
+  <text x="35"  y="662" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">• Fat JAR via Maven Shade (provided Flink runtime)</text>
+  <text x="35"  y="676" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">• GitHub Actions: build → test → promote → deploy</text>
+  <text x="35"  y="690" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">• Parallelism: 4 (test) → 12 KPU (prod) · auto-scaling prod</text>
+  <text x="35"  y="704" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">• Artifacts: s3://ais-pipeline-artifacts/releases/{build-id}/</text>
+  <text x="35"  y="718" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">• Local dev: Docker Compose (Flink + Redpanda + MinIO)</text>
+  <text x="35"  y="732" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#1B5E20">✓ Job 1 confirmed working end-to-end (Parquet in MinIO)</text>
+
+  <!-- ═══════════════════════════════════════
+       RIGHT PANEL — Considerations
+       x=515 to x=1335
+  ═══════════════════════════════════════ -->
+
+  <!-- ── SECTION 1: SCALABILITY  y=55, h=160 ── -->
+  <rect x="515" y="55" width="820" height="160" fill="white" rx="6" filter="url(#sh)" stroke="#90CAF9" stroke-width="1"/>
+  <rect x="515" y="55" width="820" height="24" fill="#1565C0" rx="6"/>
+  <rect x="515" y="70" width="820" height="9"  fill="#1565C0"/>
+  <text x="660" y="70" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" fill="white">1 · Scalability</text>
+  <text x="1320" y="70" text-anchor="end" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#BBDEFB">Parallelism · Partitioning · KDA auto-scale</text>
+
+  <!-- Left sub-col: In Place -->
+  <rect x="520" y="82" width="395" height="125" fill="#E8F5E9" rx="4"/>
+  <text x="540" y="96" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#1B5E20">✓  In Place</text>
+  <text x="530" y="111" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• FLINK_PARALLELISM env var — 4 default, 12 KPU in prod</text>
+  <text x="530" y="125" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• Kafka: 12 partitions (positions), 4 (others) — matches parallelism</text>
+  <text x="530" y="139" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• Keyed state (FragAssembler, Type24Joiner) distributes by key hash</text>
+  <text x="530" y="153" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• KDA auto-scaling enabled in prod (disabled in test env)</text>
+  <text x="530" y="167" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• targetFileSizeBytes configured in JobConfig (64 MB)</text>
+  <text x="530" y="181" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">• 5 vendor feeds × dedicated receiver pods (no shared state)</text>
+
+  <!-- Right sub-col: Gaps -->
+  <rect x="920" y="82" width="410" height="125" fill="#FFF8E1" rx="4"/>
+  <text x="940" y="96" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#E65100">⚠  Fix Needed</text>
+  <text x="930" y="111" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#BF360C">⚠ targetFileSizeBytes is NEVER USED in S3ParquetSinkBuilder</text>
+  <text x="930" y="125" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">   Files roll only on checkpoint — not on size target</text>
+  <text x="930" y="139" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">   At low traffic: files much smaller than 64 MB</text>
+  <text x="930" y="153" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#37474F">   Fix: .withFileSize(config.targetFileSizeBytes)</text>
+  <text x="930" y="167" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">   on FileSink forBulkFormat builder</text>
+  <text x="930" y="181" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">   (defer — performance optimization category)</text>
+
+  <!-- ── SECTION 2: FAULT TOLERANCE  y=225, h=180 ── -->
+  <rect x="515" y="225" width="820" height="180" fill="white" rx="6" filter="url(#sh)" stroke="#A5D6A7" stroke-width="1"/>
+  <rect x="515" y="225" width="820" height="24" fill="#2E7D32" rx="6"/>
+  <rect x="515" y="240" width="820" height="9"  fill="#2E7D32"/>
+  <text x="660" y="240" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" fill="white">2 · Fault Tolerance &amp; Durability</text>
+  <text x="1320" y="240" text-anchor="end" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#C8E6C9">Checkpointing · State backend · Sink guarantees</text>
+
+  <rect x="520" y="252" width="395" height="144" fill="#E8F5E9" rx="4"/>
+  <text x="540" y="266" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#1B5E20">✓  In Place</text>
+  <text x="530" y="281" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• Checkpoints every 60s → S3 (CHECKPOINT_INTERVAL_MS)</text>
+  <text x="530" y="295" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• State backend: filesystem — durable, survives TaskManager restarts</text>
+  <text x="530" y="309" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• OnCheckpointRollingPolicy — partial Parquet files never exposed</text>
+  <text x="530" y="323" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• ListState + ValueState — auto-restored from checkpoint on restart</text>
+  <text x="530" y="337" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• Kafka offsets committed on checkpoint (exactly-once consumer-side)</text>
+  <text x="530" y="351" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• KafkaSink: acks=all + enable.idempotence=true</text>
+  <text x="530" y="365" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">• IAM/SASL_SSL for MSK · plaintext NONE for local dev</text>
+
+  <rect x="920" y="252" width="410" height="144" fill="#FFEBEE" rx="4"/>
+  <text x="940" y="266" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#C62828">⚠  Fix Needed</text>
+  <text x="930" y="281" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#C62828">⚠ No restart strategy set — Flink may fail-fast on error</text>
+  <text x="930" y="295" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#37474F">   Fix: env.setRestartStrategy(</text>
+  <text x="930" y="308" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#37474F">     RestartStrategies.fixedDelayRestart(3, Time.seconds(10)))</text>
+  <text x="930" y="322" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#C62828">⚠ No min pause between checkpoints</text>
+  <text x="930" y="336" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#37474F">   Fix: setMinPauseBetweenCheckpoints(30_000)</text>
+  <text x="930" y="350" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">   Prevents checkpoint storm under load</text>
+  <text x="930" y="364" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#FF8F00">⚠ KafkaSink: at-least-once (not EXACTLY_ONCE)</text>
+  <text x="930" y="378" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">   Acceptable for Job 1 · Job 3 uses Iceberg ACID</text>
+
+  <!-- ── SECTION 3: ERROR & RETRIES  y=415, h=175 ── -->
+  <rect x="515" y="415" width="820" height="175" fill="white" rx="6" filter="url(#sh)" stroke="#FFCC80" stroke-width="1"/>
+  <rect x="515" y="415" width="820" height="24" fill="#E65100" rx="6"/>
+  <rect x="515" y="430" width="820" height="9"  fill="#E65100"/>
+  <text x="660" y="430" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" fill="white">3 · Error Handling &amp; Retries</text>
+  <text x="1320" y="430" text-anchor="end" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#FFE0B2">DLQ · Producer retries · Silent drops</text>
+
+  <rect x="520" y="442" width="395" height="139" fill="#E8F5E9" rx="4"/>
+  <text x="540" y="456" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#1B5E20">✓  In Place</text>
+  <text x="530" y="471" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• Kafka producer: acks=all · idempotent · retries=3 · backoff=500ms</text>
+  <text x="530" y="485" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• NMEAParser: malformed lines → no record emitted (no exception throw)</text>
+  <text x="530" y="499" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• ASMDecoder: all exceptions caught + logged DEBUG · record continues</text>
+  <text x="530" y="513" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• ValidationEngine: violations → violations[] · never drops records</text>
+  <text x="530" y="527" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• FragmentAssembler: TTL timer purges stale state cleanly</text>
+  <text x="530" y="541" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• record_quality: GOOD / WARN / ERROR preserves all for audit</text>
+  <text x="530" y="555" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">• lz4 compression on Kafka producer (batch.size=256 KB)</text>
+
+  <rect x="920" y="442" width="410" height="139" fill="#FFEBEE" rx="4"/>
+  <text x="940" y="456" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#C62828">⚠  Fix Needed</text>
+  <text x="930" y="471" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#C62828">⚠ No Dead Letter Queue — unparseable NMEA silently dropped</text>
+  <text x="930" y="485" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#37474F">   Fix: NMEAParser side output → MSK: ais.parse.dlq</text>
+  <text x="930" y="499" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#37474F">   Captures raw line + topic + error reason for audit</text>
+  <text x="930" y="513" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#C62828">⚠ No Flink restart strategy (see Fault Tolerance above)</text>
+  <text x="930" y="527" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#37474F">   Fix: fixedDelayRestart(3, 10s) in Job1ParserValidator.main()</text>
+  <text x="930" y="541" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#FF8F00">⚠ No stale fragment metric — dropped fragments invisible</text>
+  <text x="930" y="555" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">   Consider: counter on TTL expiry for monitoring</text>
+  <text x="930" y="569" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">   (low priority — add when monitoring is built)</text>
+
+  <!-- ── SECTION 4: RETENTION POLICIES  y=600, h=165 ── -->
+  <rect x="515" y="600" width="820" height="165" fill="white" rx="6" filter="url(#sh)" stroke="#CE93D8" stroke-width="1"/>
+  <rect x="515" y="600" width="820" height="24" fill="#6A1B9A" rx="6"/>
+  <rect x="515" y="615" width="820" height="9"  fill="#6A1B9A"/>
+  <text x="660" y="615" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" fill="white">4 · Retention Policies</text>
+  <text x="1320" y="615" text-anchor="end" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#E1BEE7">S3 lifecycle · MSK topics · Checkpoints</text>
+
+  <rect x="520" y="627" width="395" height="129" fill="#E8F5E9" rx="4"/>
+  <text x="540" y="641" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#1B5E20">✓  In Place</text>
+  <text x="530" y="656" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• MSK topics: 7-day retention (all 6 topics per architecture doc)</text>
+  <text x="530" y="670" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• OnCheckpointRollingPolicy — no partial/uncommitted files kept</text>
+  <text x="530" y="684" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#2E7D32">• Iceberg: table-level retention managed by Iceberg expire_snapshots</text>
+  <text x="530" y="698" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">• Glue Catalog: schema versions tracked via Schema Registry</text>
+  <text x="530" y="712" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">• Redpanda local: defaults OK for dev (data not persisted across rebuilds)</text>
+
+  <rect x="920" y="627" width="410" height="129" fill="#FFEBEE" rx="4"/>
+  <text x="940" y="641" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#C62828">⚠  Fix Needed</text>
+  <text x="930" y="656" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#C62828">⚠ S3 ais-raw/: no lifecycle rule — grows indefinitely</text>
+  <text x="930" y="670" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#C62828">⚠ S3 ais-bronze/ + ais-stage/: no lifecycle rules defined</text>
+  <text x="930" y="684" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#37474F">   Fix: Terraform S3 lifecycle rules per bucket</text>
+  <text x="930" y="698" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#C62828">⚠ Flink checkpoints: no retention limit set in code</text>
+  <text x="930" y="712" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#37474F">   Fix: setMaxConcurrentCheckpoints(1)</text>
+  <text x="930" y="726" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#37474F">       enableExternalizedCheckpoints(RETAIN_ON_CANCELLATION)</text>
+  <text x="930" y="740" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">   KDA manages max retained checkpoints automatically</text>
+
+  <!-- ── Summary bar at bottom ── -->
+  <rect x="515" y="775" width="820" height="20" fill="#ECEFF1" rx="4" stroke="#CFD8DC" stroke-width="1"/>
+  <text x="560" y="788" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#C62828">⚠ High priority fixes: (1) Restart strategy  (2) DLQ side output  (3) Checkpoint retention</text>
+  <text x="980" y="788" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#FF8F00">⚠ Medium: S3 lifecycle rules (Terraform)  ·  Min pause between checkpoints</text>
+
+</svg>

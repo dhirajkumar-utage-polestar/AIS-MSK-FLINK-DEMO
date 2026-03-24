@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="1270" viewBox="0 0 1100 1270">
+  <defs>
+    <marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0,10 3.5,0 7" fill="#546E7A"/>
+    </marker>
+    <filter id="sh" x="-4%" y="-4%" width="108%" height="108%">
+      <feDropShadow dx="1" dy="2" stdDeviation="2.5" flood-color="#00000022"/>
+    </filter>
+  </defs>
+
+  <!-- ═══ Background ═══ -->
+  <rect width="1100" height="1270" fill="#ECEFF1"/>
+
+  <!-- ═══ Title Bar ═══ -->
+  <rect x="0" y="0" width="1100" height="60" fill="#1A237E"/>
+  <text x="550" y="27" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="bold" fill="white">AIS Ingest &amp; Governance Pipeline — Architecture</text>
+  <text x="550" y="47" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="11" fill="#9FA8DA">Pole Star Defense  ·  Tier 1 Raw Production  ·  Flink 1.19.1 on KDA  ·  MSK → S3 / Apache Iceberg</text>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SECTION 1: AIS Vendors   y=68, h=95
+  ═══════════════════════════════════════════════════════════ -->
+  <rect x="20" y="68" width="1060" height="95" fill="white" rx="8" filter="url(#sh)" stroke="#BBDEFB" stroke-width="1"/>
+  <rect x="20" y="68" width="1060" height="26" fill="#1565C0" rx="8"/>
+  <rect x="20" y="85"  width="1060" height="9"  fill="#1565C0"/>
+  <text x="550" y="85" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" fill="white">AIS Data Vendors  —  5 feeds via TCP / TLS</text>
+
+  <!-- Spire -->
+  <rect x="35" y="101" width="300" height="52" fill="#E3F2FD" rx="6" stroke="#1565C0" stroke-width="1.5"/>
+  <text x="185" y="120" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" fill="#0D47A1">Spire Global</text>
+  <text x="185" y="136" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#1976D2">SPIRE-T  ·  SPIRE-S  ·  SPIRE-R</text>
+  <text x="185" y="149" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">Terrestrial + Satellite + Roaming</text>
+
+  <!-- Orbcomm -->
+  <rect x="365" y="101" width="355" height="52" fill="#E3F2FD" rx="6" stroke="#1565C0" stroke-width="1.5"/>
+  <text x="542" y="120" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" fill="#0D47A1">Orbcomm</text>
+  <text x="542" y="136" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#1976D2">ORBCOMM-T  ·  ORBCOMM-S  ·  ORBCOMM-R  ·  ORBCOMM-PT</text>
+  <text x="542" y="149" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">Terrestrial + Satellite + Roaming</text>
+
+  <!-- Kpler -->
+  <rect x="748" y="101" width="314" height="52" fill="#E3F2FD" rx="6" stroke="#1565C0" stroke-width="1.5"/>
+  <text x="905" y="120" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" fill="#0D47A1">Kpler</text>
+  <text x="905" y="136" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#1976D2">KPLER-T  ·  KPLER-S  ·  KPLER-R</text>
+  <text x="905" y="149" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">Terrestrial + Satellite + Roaming</text>
+
+  <!-- Arrow Vendors → Receivers -->
+  <line x1="550" y1="163" x2="550" y2="173" stroke="#546E7A" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SECTION 2: Go Receivers   y=173, h=60
+  ═══════════════════════════════════════════════════════════ -->
+  <rect x="20" y="173" width="1060" height="60" fill="white" rx="8" filter="url(#sh)" stroke="#A5D6A7" stroke-width="1"/>
+  <rect x="20" y="173" width="1060" height="26" fill="#2E7D32" rx="8"/>
+  <rect x="20" y="190" width="1060" height="9"  fill="#2E7D32"/>
+  <text x="490" y="190" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" fill="white">psd-ais-receiver  —  Go  ·  Kubernetes (Helm + ArgoCD)  ·  5 pods  ·  one per feed</text>
+  <text x="550" y="213" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#1B5E20">TCP/TLS  ·  Tag block parsing (c: timestamp, s: source)  ·  Source mapping  ·  Multi-part fragment assembly (5-min TTL)  ·  SIGTERM graceful flush</text>
+  <text x="550" y="227" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#388E3C">Dual write:  (1) S3 ais-raw/ — NMEA archive    (2) Kafka topic ais.raw.nmea — streaming pipeline</text>
+
+  <!-- Branch arrows: receivers → S3 raw (left) and MSK raw (right) -->
+  <line x1="265" y1="233" x2="265" y2="251" stroke="#546E7A" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="800" y1="233" x2="800" y2="251" stroke="#546E7A" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SECTION 3a: S3 ais-raw (left)  +  3b: MSK ais.raw.nmea (right)
+       y=251, h=52
+  ═══════════════════════════════════════════════════════════ -->
+
+  <!-- S3 ais-raw: x=20, w=490 -->
+  <rect x="20"  y="251" width="490" height="52" fill="#E0F2F1" rx="7" filter="url(#sh)" stroke="#00796B" stroke-width="1.5"/>
+  <rect x="20"  y="251" width="490" height="22" fill="#00695C" rx="7"/>
+  <rect x="20"  y="264" width="490" height="9"  fill="#00695C"/>
+  <text x="265" y="264" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="bold" fill="white">S3: ais-raw/  (NMEA Canonical Archive)</text>
+  <text x="265" y="283" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#004D40">source=SPIRE-T/year=YYYY/month=MM/day=DD/hour=HH/&lt;uuid&gt;.nmea</text>
+  <text x="265" y="296" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">Indefinite retention  ·  ~500 K sentences/hr total across all vendors</text>
+
+  <!-- MSK ais.raw.nmea: x=520, w=560 -->
+  <rect x="520" y="251" width="560" height="52" fill="#FFF3E0" rx="7" filter="url(#sh)" stroke="#E65100" stroke-width="1.5"/>
+  <rect x="520" y="251" width="560" height="22" fill="#E65100" rx="7"/>
+  <rect x="520" y="264" width="560" height="9"  fill="#E65100"/>
+  <text x="800" y="264" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="bold" fill="white">MSK: ais.raw.nmea</text>
+  <text x="800" y="283" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#BF360C">12 partitions  ·  keyed by MMSI  ·  7-day retention  ·  SASL/SSL + IAM auth</text>
+  <text x="800" y="296" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">Raw NMEA sentences with full tag blocks intact</text>
+
+  <!-- Arrow: MSK ais.raw.nmea → Flink Job 1 (elbow) -->
+  <path d="M 800,303 L 800,313 L 550,313 L 550,323" stroke="#546E7A" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SECTION 4: FLINK JOB 1   y=323, h=222   bottom=545
+  ═══════════════════════════════════════════════════════════ -->
+  <rect x="20" y="323" width="1060" height="222" fill="white" rx="8" filter="url(#sh)" stroke="#7E57C2" stroke-width="2"/>
+  <rect x="20" y="323" width="1060" height="28"  fill="#4527A0" rx="8"/>
+  <rect x="20" y="342" width="1060" height="9"   fill="#4527A0"/>
+  <text x="430" y="341" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="bold" fill="white">Flink Job 1 — Parser + Validation  (Bronze Layer)</text>
+  <text x="1073" y="338" text-anchor="end" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#D1C4E9">AisLib 2.8.6-rc1  ·  Flink 1.19.1  ·  Parallelism: 12 (prod)</text>
+
+  <!-- ── 6 pipeline step boxes: w=164 each, y=358, h=80
+         x positions: 28, 200, 372, 544, 716, 888 ── -->
+
+  <!-- Step 1: NMEANormalizer -->
+  <rect x="28"  y="358" width="164" height="80" fill="#EDE7F6" rx="6" stroke="#7E57C2" stroke-width="1.5"/>
+  <text x="110" y="376" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#4527A0">NMEANormalizer</text>
+  <text x="110" y="390" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#5E35B1">MapFunction</text>
+  <text x="110" y="404" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">Kpler line-format</text>
+  <text x="110" y="417" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">normalization</text>
+  <text x="110" y="430" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#78909C">filter blanks</text>
+  <line x1="192" y1="398" x2="200" y2="398" stroke="#7E57C2" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Step 2: FragmentAssembler -->
+  <rect x="200" y="358" width="164" height="80" fill="#EDE7F6" rx="6" stroke="#7E57C2" stroke-width="1.5"/>
+  <text x="282" y="374" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#4527A0">Fragment</text>
+  <text x="282" y="386" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#4527A0">Assembler</text>
+  <text x="282" y="400" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#5E35B1">KeyedProcessFn</text>
+  <text x="282" y="414" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">Multi-part buffer</text>
+  <text x="282" y="427" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">TTL timer: 30 s</text>
+  <line x1="364" y1="398" x2="372" y2="398" stroke="#7E57C2" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Step 3: NMEAParser -->
+  <rect x="372" y="358" width="164" height="80" fill="#EDE7F6" rx="6" stroke="#7E57C2" stroke-width="1.5"/>
+  <text x="454" y="376" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#4527A0">NMEAParser</text>
+  <text x="454" y="390" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#5E35B1">FlatMapFunction</text>
+  <text x="454" y="404" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">AisLib decode</text>
+  <text x="454" y="417" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">Types 1 – 27</text>
+  <text x="454" y="430" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">tag block extract</text>
+  <line x1="536" y1="398" x2="544" y2="398" stroke="#7E57C2" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Step 4: ASMDecoder -->
+  <rect x="544" y="358" width="164" height="80" fill="#EDE7F6" rx="6" stroke="#7E57C2" stroke-width="1.5"/>
+  <text x="626" y="376" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#4527A0">ASMDecoder</text>
+  <text x="626" y="390" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#5E35B1">MapFunction</text>
+  <text x="626" y="404" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">Type 6/8 binary</text>
+  <text x="626" y="417" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">DAC=1 FID=11/28</text>
+  <text x="626" y="430" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">Meteo + Route</text>
+  <line x1="708" y1="398" x2="716" y2="398" stroke="#7E57C2" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Step 5: Type24Joiner -->
+  <rect x="716" y="358" width="164" height="80" fill="#EDE7F6" rx="6" stroke="#7E57C2" stroke-width="1.5"/>
+  <text x="798" y="376" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#4527A0">Type24Joiner</text>
+  <text x="798" y="390" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#5E35B1">KeyedProcessFn</text>
+  <text x="798" y="404" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">Part A + B join</text>
+  <text x="798" y="417" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">keyed by MMSI</text>
+  <text x="798" y="430" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">TTL: 5 min</text>
+  <line x1="880" y1="398" x2="888" y2="398" stroke="#7E57C2" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Step 6: ValidationEngine -->
+  <rect x="888" y="358" width="164" height="80" fill="#EDE7F6" rx="6" stroke="#7E57C2" stroke-width="1.5"/>
+  <text x="970" y="374" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#4527A0">Validation</text>
+  <text x="970" y="386" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#4527A0">Engine</text>
+  <text x="970" y="400" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#5E35B1">MapFunction</text>
+  <text x="970" y="414" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">YAML rules</text>
+  <text x="970" y="427" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">GOOD / WARN / ERROR</text>
+
+  <!-- Job 1 notes -->
+  <text x="35"  y="458" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#5E35B1">▸ Stateful: Flink managed ListState / ValueState  ·  Checkpoints every 60 s → S3  ·  Backend: filesystem</text>
+  <text x="35"  y="471" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#5E35B1">▸ Kafka source: committedOffsets(EARLIEST)  ·  session.timeout=30 s  ·  Auth: IAM / SASL_SSL (MSK)  |  NONE (Redpanda local)</text>
+  <text x="35"  y="484" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#5E35B1">▸ Producer: acks=all  ·  idempotent  ·  retries=3  ·  lz4 compression    |    Parquet: ReflectData.AllowNull  ·  SNAPPY  ·  OnCheckpoint rolling policy</text>
+
+  <!-- Divider + dual sink label -->
+  <line x1="30" y1="496" x2="1070" y2="496" stroke="#EDE7F6" stroke-width="1"/>
+  <text x="220"  y="512" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#7E57C2">↙  S3 Parquet Sink</text>
+  <text x="550"  y="512" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#4527A0">Dual Sink Output</text>
+  <text x="870"  y="512" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#7E57C2">MSK Kafka Sink  ↘</text>
+
+  <!-- Arrows: Job 1 bottom → sinks -->
+  <line x1="265" y1="545" x2="265" y2="563" stroke="#546E7A" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="815" y1="545" x2="815" y2="563" stroke="#546E7A" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SECTION 5a: S3 Bronze (left)  +  5b: MSK ais.ingest (right)
+       y=563, h=58   bottom=621
+  ═══════════════════════════════════════════════════════════ -->
+
+  <!-- S3 Bronze: x=20, w=520 -->
+  <rect x="20"  y="563" width="520" height="58" fill="#E0F2F1" rx="7" filter="url(#sh)" stroke="#00796B" stroke-width="1.5"/>
+  <rect x="20"  y="563" width="520" height="22" fill="#00695C" rx="7"/>
+  <rect x="20"  y="576" width="520" height="9"  fill="#00695C"/>
+  <text x="280" y="576" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="bold" fill="white">S3: ais-bronze-ingest/  (Bronze Layer)</text>
+  <text x="280" y="595" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#004D40">Parquet / SNAPPY  ·  year=.../month=.../day=.../hour=.../</text>
+  <text x="280" y="609" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">130+ columns  ·  All msg types combined  ·  ~64 MB target files  ·  quality-tagged</text>
+
+  <!-- MSK ais.ingest: x=550, w=530 -->
+  <rect x="550" y="563" width="530" height="58" fill="#FFF3E0" rx="7" filter="url(#sh)" stroke="#E65100" stroke-width="1.5"/>
+  <rect x="550" y="563" width="530" height="22" fill="#E65100" rx="7"/>
+  <rect x="550" y="576" width="530" height="9"  fill="#E65100"/>
+  <text x="815" y="576" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="bold" fill="white">MSK: ais.ingest</text>
+  <text x="815" y="595" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#BF360C">12 partitions  ·  keyed by MMSI (STRING)  ·  JSON per record  ·  7-day retention</text>
+  <text x="815" y="609" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">at-least-once  ·  acks=all  ·  idempotent producer  ·  lz4</text>
+
+  <!-- Arrow: MSK ingest → Job 2 (elbow) -->
+  <path d="M 815,621 L 815,631 L 550,631 L 550,641" stroke="#546E7A" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SECTION 6: FLINK JOB 2   y=641, h=145   bottom=786
+  ═══════════════════════════════════════════════════════════ -->
+  <rect x="20" y="641" width="1060" height="145" fill="white" rx="8" filter="url(#sh)" stroke="#AB47BC" stroke-width="2"/>
+  <rect x="20" y="641" width="1060" height="28"  fill="#6A1B9A" rx="8"/>
+  <rect x="20" y="660" width="1060" height="9"   fill="#6A1B9A"/>
+  <text x="430" y="659" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="bold" fill="white">Flink Job 2 — Router  (Stage Layer)</text>
+  <text x="1073" y="656" text-anchor="end" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#E1BEE7">No filtering — all records pass through</text>
+
+  <!-- 4 route boxes: w=243, y=675, h=65  |  x: 33, 290, 547, 804 -->
+
+  <!-- Route 1: Position Reports -->
+  <rect x="33"  y="675" width="243" height="65" fill="#F3E5F5" rx="6" stroke="#AB47BC" stroke-width="1.5"/>
+  <text x="154" y="694" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#6A1B9A">Position Reports</text>
+  <text x="154" y="708" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#7B1FA2">Types 1, 2, 3, 18, 19, 27</text>
+  <text x="154" y="722" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">~85% of volume</text>
+  <text x="154" y="735" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">41 columns  ·  hourly partition</text>
+
+  <!-- Route 2: Vessel Static -->
+  <rect x="290" y="675" width="243" height="65" fill="#F3E5F5" rx="6" stroke="#AB47BC" stroke-width="1.5"/>
+  <text x="411" y="694" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#6A1B9A">Vessel Static Data</text>
+  <text x="411" y="708" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#7B1FA2">Types 5, 24</text>
+  <text x="411" y="722" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">~10% of volume</text>
+  <text x="411" y="735" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">Name, dims, ETA, IMO</text>
+
+  <!-- Route 3: Aid to Navigation -->
+  <rect x="547" y="675" width="243" height="65" fill="#F3E5F5" rx="6" stroke="#AB47BC" stroke-width="1.5"/>
+  <text x="668" y="694" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#6A1B9A">Aid to Navigation</text>
+  <text x="668" y="708" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#7B1FA2">Type 21</text>
+  <text x="668" y="722" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">~3% of volume</text>
+  <text x="668" y="735" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">Buoys, beacons, lights</text>
+
+  <!-- Route 4: Other Messages -->
+  <rect x="804" y="675" width="248" height="65" fill="#F3E5F5" rx="6" stroke="#AB47BC" stroke-width="1.5"/>
+  <text x="928" y="694" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#6A1B9A">Other Messages</text>
+  <text x="928" y="708" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#7B1FA2">Types 4, 6–17, 20, 22–26</text>
+  <text x="928" y="722" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">~2% of volume</text>
+  <text x="928" y="735" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">UTC, safety, binary msgs</text>
+
+  <!-- Arrows: Job 2 bottom → sinks -->
+  <line x1="265" y1="786" x2="265" y2="806" stroke="#546E7A" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="815" y1="786" x2="815" y2="806" stroke="#546E7A" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SECTION 7a: S3 Stage (left)  +  7b: MSK ais.stage.* (right)
+       y=806, h=72   bottom=878
+  ═══════════════════════════════════════════════════════════ -->
+
+  <!-- S3 Stage: x=20, w=520 -->
+  <rect x="20"  y="806" width="520" height="72" fill="#E0F2F1" rx="7" filter="url(#sh)" stroke="#00796B" stroke-width="1.5"/>
+  <rect x="20"  y="806" width="520" height="22" fill="#00695C" rx="7"/>
+  <rect x="20"  y="819" width="520" height="9"  fill="#00695C"/>
+  <text x="280" y="819" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="bold" fill="white">S3: ais-stage/  (Stage / Silver Layer  —  4 tables)</text>
+  <text x="280" y="838" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#004D40">4 typed Parquet tables  ·  SNAPPY  ·  ~64 MB target files</text>
+  <text x="280" y="852" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">positions  ·  vessel_static  ·  aid_to_nav  ·  other_messages</text>
+  <text x="280" y="866" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">Schema-fixed  ·  All records included (no quality filter yet)</text>
+
+  <!-- MSK ais.stage.*: x=550, w=530 -->
+  <rect x="550" y="806" width="530" height="72" fill="#FFF3E0" rx="7" filter="url(#sh)" stroke="#E65100" stroke-width="1.5"/>
+  <rect x="550" y="806" width="530" height="22" fill="#E65100" rx="7"/>
+  <rect x="550" y="819" width="530" height="9"  fill="#E65100"/>
+  <text x="815" y="819" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="bold" fill="white">MSK: ais.stage.*  (4 topics)</text>
+  <text x="815" y="838" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#BF360C">ais.stage.positions (12p)  ·  ais.stage.static (4p)  ·  ais.stage.aid (4p)  ·  ais.stage.other (4p)</text>
+  <text x="815" y="852" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">7-day retention  ·  keyed by MMSI</text>
+  <text x="815" y="866" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#546E7A">Feeds Flink Job 3  ·  future Tier 2 consumers</text>
+
+  <!-- Arrow: MSK stage.* → Job 3 (elbow) -->
+  <path d="M 815,878 L 815,888 L 550,888 L 550,898" stroke="#546E7A" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SECTION 8: FLINK JOB 3   y=898, h=80   bottom=978
+  ═══════════════════════════════════════════════════════════ -->
+  <rect x="20" y="898" width="1060" height="80" fill="white" rx="8" filter="url(#sh)" stroke="#42A5F5" stroke-width="2"/>
+  <rect x="20" y="898" width="1060" height="28" fill="#1565C0" rx="8"/>
+  <rect x="20" y="917" width="1060" height="9"  fill="#1565C0"/>
+  <text x="420" y="915" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="bold" fill="white">Flink Job 3 — Quality Filter  (Production Layer)</text>
+  <text x="1073" y="912" text-anchor="end" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#BBDEFB">Exactly-once via Iceberg ACID transactions</text>
+
+  <!-- PASS box -->
+  <rect x="185" y="932" width="300" height="38" fill="#E8F5E9" rx="6" stroke="#43A047" stroke-width="1.5"/>
+  <text x="335" y="947" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#1B5E20">✓  PASS  →  raw_production</text>
+  <text x="335" y="961" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#2E7D32">record_quality = GOOD  or  WARN   (configurable threshold)</text>
+
+  <!-- REJECT box -->
+  <rect x="615" y="932" width="300" height="38" fill="#FFEBEE" rx="6" stroke="#E53935" stroke-width="1.5"/>
+  <text x="765" y="947" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#B71C1C">✗  REJECT  →  discarded</text>
+  <text x="765" y="961" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#C62828">record_quality = ERROR  ·  still preserved in Stage layer for audit</text>
+
+  <!-- Arrow: Job 3 → Iceberg -->
+  <line x1="550" y1="978" x2="550" y2="998" stroke="#546E7A" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SECTION 9: ICEBERG raw_production   y=998, h=90   bottom=1088
+  ═══════════════════════════════════════════════════════════ -->
+  <rect x="20" y="998" width="1060" height="90" fill="white" rx="8" filter="url(#sh)" stroke="#5C6BC0" stroke-width="2"/>
+  <rect x="20" y="998" width="1060" height="28" fill="#283593" rx="8"/>
+  <rect x="20" y="1017" width="1060" height="9" fill="#283593"/>
+  <text x="440" y="1015" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="bold" fill="white">Apache Iceberg  —  raw_production  (Gold Layer)</text>
+  <text x="1073" y="1012" text-anchor="end" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#C5CAE9">ACID  ·  Time travel  ·  Schema evolution  ·  AWS Glue Catalog</text>
+
+  <!-- 4 Iceberg table boxes: w=245, y=1032, h=46  |  x: 30, 288, 546, 804 -->
+  <rect x="30"  y="1032" width="245" height="46" fill="#E8EAF6" rx="6" stroke="#5C6BC0" stroke-width="1.5"/>
+  <text x="152" y="1050" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#283593">ais_position_reports</text>
+  <text x="152" y="1064" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#3949AB">Partition: year / month / day / hour</text>
+  <text x="152" y="1074" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="8"  fill="#546E7A">Types 1, 2, 3, 18, 19, 27</text>
+
+  <rect x="288" y="1032" width="245" height="46" fill="#E8EAF6" rx="6" stroke="#5C6BC0" stroke-width="1.5"/>
+  <text x="410" y="1050" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#283593">ais_vessel_static_data</text>
+  <text x="410" y="1064" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#3949AB">Partition: year / month / day</text>
+  <text x="410" y="1074" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="8"  fill="#546E7A">Types 5, 24</text>
+
+  <rect x="546" y="1032" width="245" height="46" fill="#E8EAF6" rx="6" stroke="#5C6BC0" stroke-width="1.5"/>
+  <text x="668" y="1050" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#283593">ais_aid_to_navigation</text>
+  <text x="668" y="1064" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#3949AB">Partition: year / month / day</text>
+  <text x="668" y="1074" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="8"  fill="#546E7A">Type 21</text>
+
+  <rect x="804" y="1032" width="248" height="46" fill="#E8EAF6" rx="6" stroke="#5C6BC0" stroke-width="1.5"/>
+  <text x="928" y="1050" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#283593">ais_other_messages</text>
+  <text x="928" y="1064" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9"  fill="#3949AB">Partition: year / month / day</text>
+  <text x="928" y="1074" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="8"  fill="#546E7A">Types 4, 6–17, 20, 22–26</text>
+
+  <!-- Arrow: Iceberg → Downstream -->
+  <line x1="550" y1="1088" x2="550" y2="1108" stroke="#546E7A" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SECTION 10: Downstream Consumers   y=1108, h=60   bottom=1168
+  ═══════════════════════════════════════════════════════════ -->
+  <rect x="20" y="1108" width="1060" height="60" fill="white" rx="8" filter="url(#sh)" stroke="#90A4AE" stroke-width="1.5"/>
+  <rect x="20" y="1108" width="1060" height="26" fill="#37474F" rx="8"/>
+  <rect x="20" y="1125" width="1060" height="9"  fill="#37474F"/>
+  <text x="550" y="1124" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" fill="white">Downstream Consumers</text>
+  <text x="270" y="1150" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="11" fill="#263238">AWS Athena — Ad-hoc SQL via Glue Catalog</text>
+  <text x="760" y="1150" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#78909C">Tier 2: VUID / Identity Resolution (future)  ·  Tier 3: Multi-source Fusion (future)</text>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       LEGEND   y=1185, h=75
+  ═══════════════════════════════════════════════════════════ -->
+  <rect x="20" y="1185" width="1060" height="75" fill="white" rx="8" filter="url(#sh)" stroke="#CFD8DC" stroke-width="1"/>
+  <text x="35" y="1202" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="#37474F">Legend:</text>
+
+  <rect x="95"  y="1191" width="13" height="13" fill="#1565C0" rx="2"/>
+  <text x="112" y="1202" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#263238">AIS Vendors</text>
+
+  <rect x="205" y="1191" width="13" height="13" fill="#2E7D32" rx="2"/>
+  <text x="222" y="1202" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#263238">Go Receivers</text>
+
+  <rect x="330" y="1191" width="13" height="13" fill="#E65100" rx="2"/>
+  <text x="347" y="1202" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#263238">MSK / Kafka Topics</text>
+
+  <rect x="480" y="1191" width="13" height="13" fill="#4527A0" rx="2"/>
+  <text x="497" y="1202" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#263238">Flink Job 1 — Bronze</text>
+
+  <rect x="630" y="1191" width="13" height="13" fill="#6A1B9A" rx="2"/>
+  <text x="647" y="1202" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#263238">Flink Job 2 — Stage</text>
+
+  <rect x="780" y="1191" width="13" height="13" fill="#1565C0" rx="2"/>
+  <text x="797" y="1202" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#263238">Flink Job 3 — Prod</text>
+
+  <rect x="920" y="1191" width="13" height="13" fill="#00695C" rx="2"/>
+  <text x="937" y="1202" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#263238">S3 Storage</text>
+
+  <rect x="1010" y="1191" width="13" height="13" fill="#283593" rx="2"/>
+  <text x="1027" y="1202" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#263238">Iceberg</text>
+
+  <text x="35" y="1226" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">✓  Built &amp; tested:  Job 1 (Parser + Validation)  ·  Local Docker stack (Flink + Redpanda + MinIO)  ·  Parquet files confirmed in MinIO</text>
+  <text x="35" y="1242" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#546E7A">○  Planned:  Job 2 (Router)  ·  Job 3 (Quality Filter)  ·  Deployment: KDA (AWS Kinesis Data Analytics)  ·  Fat JAR via Maven Shade  ·  GitHub Actions CI/CD</text>
+
+</svg>

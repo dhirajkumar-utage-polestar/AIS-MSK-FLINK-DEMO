@@ -1,0 +1,237 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# AIS Flink Job 1 — Local Dev Stack
+#
+# Services:
+#   redpanda   — local Kafka (same API as MSK, no auth required locally)
+#   minio      — local S3 (s3a:// sink target)
+#   jobmanager — Flink 1.19 JobManager
+#   taskmanager— Flink 1.19 TaskManager
+#   job-submit — one-shot: waits for JM, uploads JAR, submits job
+#
+# Access:
+#   Flink UI : http://localhost:8081
+#   Redpanda : localhost:19092  (Kafka)
+#   MinIO UI : http://localhost:9001  (user: minioadmin / minioadmin)
+#
+# Usage:
+#   docker compose up --build
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  ais-net:
+    driver: bridge
+
+volumes:
+  minio-data:
+
+services:
+
+  # ── Local Kafka (Redpanda — Kafka-compatible, no Zookeeper) ────────────────
+  redpanda:
+    image: redpandadata/redpanda:v24.1.1
+    container_name: redpanda
+    networks: [ais-net]
+    ports:
+      - "19092:19092"   # Kafka external
+      - "18081:18081"   # Schema Registry
+      - "18082:18082"   # REST proxy
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:18082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --overprovisioned
+      - --smp 1
+      - --memory 512M
+      - --reserve-memory 0M
+      - --default-log-level=warn
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster info -b redpanda:9092 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── Redpanda Console (UI) ──────────────────────────────────────────────────
+  redpanda-console:
+    image: redpandadata/console:v2.4.6
+    container_name: redpanda-console
+    networks: [ais-net]
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_BROKERS:                    "redpanda:9092"
+      KAFKA_SCHEMAREGISTRY_ENABLED:     "true"
+      KAFKA_SCHEMAREGISTRY_URLS:        "http://redpanda:8081"
+      REDPANDA_ADMINAPI_ENABLED:        "true"
+      REDPANDA_ADMINAPI_URLS:           "http://redpanda:9644"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Create source topics on startup
+  redpanda-init:
+    image: redpandadata/redpanda:v24.1.1
+    container_name: redpanda-init
+    networks: [ais-net]
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "
+      rpk topic create ais-terrestrial ais-satellite ais-roaming ais.ingest ais.parse.dlq \
+        --brokers redpanda:9092 \
+        -p 4 \
+        -r 1 \
+        2>&1 | grep -v 'already exists' || true
+      echo 'Topics ready.'
+      "
+    restart: "no"
+
+  # ── Local S3 (MinIO) ───────────────────────────────────────────────────────
+  minio:
+    image: minio/minio:RELEASE.2024-03-30T09-41-56Z
+    container_name: minio
+    networks: [ais-net]
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web UI
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:RELEASE.2024-03-30T15-29-52Z
+    container_name: minio-init
+    networks: [ais-net]
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "
+      mc alias set local http://minio:9000 minioadmin minioadmin
+      mc mb --ignore-existing local/ais-bronze-local
+      mc mb --ignore-existing local/flink-checkpoints
+      echo 'Buckets ready.'
+      "
+    restart: "no"
+
+  # ── Flink 1.19 ────────────────────────────────────────────────────────────
+  jobmanager:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.flink-base
+    container_name: flink-jobmanager
+    networks: [ais-net]
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    environment:
+      # ── Job config (JobConfig.java reads these from env) ─────────────────────
+      MSK_BROKERS:    "redpanda:9092"
+      SOURCE_TOPICS:  "ais-terrestrial,ais-satellite,ais-roaming"
+      CONSUMER_GROUP: "ais-flink-job1-local"
+      INGEST_TOPIC:   "ais.ingest"
+      S3_BUCKET:      "ais-bronze-local"
+      S3_PREFIX:      "ais-bronze-ingest"
+      AWS_REGION:     "us-east-1"
+      KAFKA_AUTH:     "NONE"
+      CHECKPOINT_DIR: "s3a://flink-checkpoints/job1"
+      FRAGMENT_TTL_SECONDS:      "30"
+      TYPE24_JOIN_TTL_SECONDS:   "300"
+      FLINK_PARALLELISM:         "1"
+      DLQ_TOPIC:                 "ais.parse.dlq"
+      RESTART_ATTEMPTS:          "3"
+      RESTART_DELAY_MS:          "10000"
+      MIN_PAUSE_BETWEEN_CHECKPOINTS_MS: "30000"
+      # ── Flink internal config ─────────────────────────────────────────────────
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        jobmanager.memory.process.size: 1600m
+        state.backend: filesystem
+        state.checkpoints.dir: s3a://flink-checkpoints/job1
+        s3.endpoint: http://minio:9000
+        s3.path.style.access: true
+        s3.access-key: minioadmin
+        s3.secret-key: minioadmin
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8081/overview"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  taskmanager:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.flink-base
+    container_name: flink-taskmanager
+    networks: [ais-net]
+    depends_on:
+      jobmanager:
+        condition: service_healthy
+    command: taskmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        taskmanager.memory.process.size: 2048m
+        taskmanager.numberOfTaskSlots: 4
+        state.backend: filesystem
+        state.checkpoints.dir: s3a://flink-checkpoints/job1
+        s3.endpoint: http://minio:9000
+        s3.path.style.access: true
+        s3.access-key: minioadmin
+        s3.secret-key: minioadmin
+      # Job env vars — read by JobConfig inside the task
+      MSK_BROKERS: "redpanda:9092"
+      SOURCE_TOPICS: "ais-terrestrial,ais-satellite,ais-roaming"
+      CONSUMER_GROUP: "ais-flink-job1-local"
+      INGEST_TOPIC: "ais.ingest"
+      S3_BUCKET: "ais-bronze-local"
+      S3_PREFIX: "ais-bronze-ingest"
+      AWS_REGION: "us-east-1"
+      KAFKA_AUTH: "NONE"
+      CHECKPOINT_DIR: "s3a://flink-checkpoints/job1"
+
+  # ── Job Submitter ─────────────────────────────────────────────────────────
+  job-submit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ais-job-submit
+    networks: [ais-net]
+    depends_on:
+      jobmanager:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      JM_HOST: jobmanager
+      JM_PORT: "8081"
+      FLINK_PARALLELISM: "1"
+      # Job env vars (override JobConfig defaults for local)
+      MSK_BROKERS: "redpanda:9092"
+      SOURCE_TOPICS: "ais-terrestrial,ais-satellite,ais-roaming"
+      CONSUMER_GROUP: "ais-flink-job1-local"
+      INGEST_TOPIC: "ais.ingest"
+      S3_BUCKET: "ais-bronze-local"
+      S3_PREFIX: "ais-bronze-ingest"
+      AWS_REGION: "us-east-1"
+      FRAGMENT_TTL_SECONDS: "30"
+      TYPE24_JOIN_TTL_SECONDS: "300"
+      CHECKPOINT_DIR: "s3a://flink-checkpoints/job1"
+      KAFKA_AUTH: "NONE"
+    entrypoint: ["/opt/flink/bin/submit-job.sh"]
+    restart: "no"
