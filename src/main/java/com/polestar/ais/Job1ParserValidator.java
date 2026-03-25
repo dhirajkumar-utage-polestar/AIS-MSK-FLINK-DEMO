@@ -139,16 +139,26 @@ public class Job1ParserValidator {
                 .name("ValidationEngine");
 
         // ── Sinks ─────────────────────────────────────────────────────────────
-        validated.sinkTo(MSKSinkBuilder.build(config))
-                 .name("MSK-Ingest-Sink");
+        if (!config.disableMskSink) {
+            validated.sinkTo(MSKSinkBuilder.build(config))
+                     .name("MSK-Ingest-Sink");
+
+            parsed.getSideOutput(NMEAParser.DLQ_TAG)
+                  .sinkTo(MSKSinkBuilder.buildDlq(config))
+                  .name("DLQ-Sink");
+        } else {
+            // DISABLE_MSK_SINK=true: discard Kafka output, useful when
+            // ais.ingest / ais.parse.dlq don't exist on the target cluster.
+            validated.addSink(new org.apache.flink.streaming.api.functions.sink.DiscardingSink<>())
+                     .name("MSK-Ingest-Sink-DISABLED");
+
+            parsed.getSideOutput(NMEAParser.DLQ_TAG)
+                  .addSink(new org.apache.flink.streaming.api.functions.sink.DiscardingSink<>())
+                  .name("DLQ-Sink-DISABLED");
+        }
 
         validated.sinkTo(S3ParquetSinkBuilder.build(config))
                  .name("S3-Parquet-Sink");
-
-        // ── DLQ: unparseable NMEA lines ───────────────────────────────────────
-        parsed.getSideOutput(NMEAParser.DLQ_TAG)
-              .sinkTo(MSKSinkBuilder.buildDlq(config))
-              .name("DLQ-Sink");
 
         env.execute("AIS-Job1-ParserValidator");
     }

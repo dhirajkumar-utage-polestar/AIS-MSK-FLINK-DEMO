@@ -7,33 +7,39 @@
 # Required env vars (set in shell before running):
 #   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN  (or use a profile)
 #
-# What changes vs base:
-#   - Redpanda + redpanda-init removed (not needed)
-#   - MSK_BROKERS → real MSK endpoints (port 9098 SASL_SSL)
-#   - KAFKA_AUTH=IAM → enables MSK IAM auth in Job1ParserValidator + MSKSinkBuilder
-#   - AWS credentials forwarded from host shell into taskmanager + job-submit
-#   - S3 sink → real S3 bucket (not MinIO) — optional, MinIO still available
+# Network note: MSK brokers are on VPN (10.30.x.x). Docker containers use bridge
+# networking and need iptables forwarding to reach VPN subnets. Run once on host:
+#   sudo iptables -t nat -A POSTROUTING -s 172.20.0.0/16 -o tun0 -j MASQUERADE
+#   sudo iptables -A FORWARD -i br-+ -o tun0 -j ACCEPT
+#   sudo iptables -A FORWARD -i tun0 -o br-+ -m state --state RELATED,ESTABLISHED -j ACCEPT
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
 
-  # Disable local Kafka — not needed when using real MSK
+  # Disable local Kafka + console — not needed when using real MSK
   redpanda:
     profiles: ["disabled"]
 
   redpanda-init:
     profiles: ["disabled"]
 
-  # Override jobmanager: switch checkpoints to local filesystem to avoid
-  # AWS S3 credential conflict with MinIO (host AWS creds hit real S3, not MinIO)
+  redpanda-console:
+    profiles: ["disabled"]
+
+  # Override jobmanager: MSK brokers + IAM auth + local filesystem checkpoints
   jobmanager:
+    extra_hosts:
+      - "b-1.aismskcluster.fvmx2c.c1.kafka.us-east-1.amazonaws.com:10.30.24.63"
+      - "b-2.aismskcluster.fvmx2c.c1.kafka.us-east-1.amazonaws.com:10.30.26.172"
+      - "b-3.aismskcluster.fvmx2c.c1.kafka.us-east-1.amazonaws.com:10.30.25.160"
     environment:
       MSK_BROKERS: "b-1.aismskcluster.fvmx2c.c1.kafka.us-east-1.amazonaws.com:9098,b-2.aismskcluster.fvmx2c.c1.kafka.us-east-1.amazonaws.com:9098,b-3.aismskcluster.fvmx2c.c1.kafka.us-east-1.amazonaws.com:9098"
       SOURCE_TOPICS:  "ais-terrestrial,ais-satellite,ais-roaming"
       CONSUMER_GROUP: "ais-flink-job1-local-test"
       INGEST_TOPIC:   "ais.ingest"
       AWS_REGION:     "us-east-1"
-      KAFKA_AUTH:     "IAM"
+      KAFKA_AUTH:       "IAM"
+      DISABLE_MSK_SINK: "true"
       AWS_ACCESS_KEY_ID:     "${AWS_ACCESS_KEY_ID}"
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
       AWS_SESSION_TOKEN:     "${AWS_SESSION_TOKEN}"
@@ -51,18 +57,21 @@ services:
         s3.secret-key: minioadmin
 
   taskmanager:
+    extra_hosts:
+      - "b-1.aismskcluster.fvmx2c.c1.kafka.us-east-1.amazonaws.com:10.30.24.63"
+      - "b-2.aismskcluster.fvmx2c.c1.kafka.us-east-1.amazonaws.com:10.30.26.172"
+      - "b-3.aismskcluster.fvmx2c.c1.kafka.us-east-1.amazonaws.com:10.30.25.160"
     environment:
       MSK_BROKERS: "b-1.aismskcluster.fvmx2c.c1.kafka.us-east-1.amazonaws.com:9098,b-2.aismskcluster.fvmx2c.c1.kafka.us-east-1.amazonaws.com:9098,b-3.aismskcluster.fvmx2c.c1.kafka.us-east-1.amazonaws.com:9098"
       SOURCE_TOPICS:  "ais-terrestrial,ais-satellite,ais-roaming"
       CONSUMER_GROUP: "ais-flink-job1-local-test"
       INGEST_TOPIC:   "ais.ingest"
       AWS_REGION:     "us-east-1"
-      KAFKA_AUTH:     "IAM"
-      # Pass host AWS credentials into the container
+      KAFKA_AUTH:       "IAM"
+      DISABLE_MSK_SINK: "true"
       AWS_ACCESS_KEY_ID:     "${AWS_ACCESS_KEY_ID}"
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
       AWS_SESSION_TOKEN:     "${AWS_SESSION_TOKEN}"
-      # Keep writing to local MinIO so you don't touch prod S3
       S3_BUCKET:  "ais-bronze-local"
       S3_PREFIX:  "ais-bronze-ingest"
       CHECKPOINT_DIR: "file:///tmp/flink-checkpoints/job1"
@@ -89,7 +98,8 @@ services:
       CONSUMER_GROUP: "ais-flink-job1-local-test"
       INGEST_TOPIC:   "ais.ingest"
       AWS_REGION:     "us-east-1"
-      KAFKA_AUTH:     "IAM"
+      KAFKA_AUTH:       "IAM"
+      DISABLE_MSK_SINK: "true"
       AWS_ACCESS_KEY_ID:     "${AWS_ACCESS_KEY_ID}"
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
       AWS_SESSION_TOKEN:     "${AWS_SESSION_TOKEN}"

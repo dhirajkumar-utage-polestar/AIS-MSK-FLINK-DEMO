@@ -42,6 +42,9 @@ public class JobConfig implements Serializable {
     public final int restartAttempts;
     public final long restartDelayMs;
 
+    // Sink toggles
+    public final boolean disableMskSink;
+
     public JobConfig() {
         this.mskBrokers = env("MSK_BROKERS",
                 "b-1.aismskcluster.fvmx2c.c1.kafka.us-east-1.amazonaws.com:9098," +
@@ -70,6 +73,7 @@ public class JobConfig implements Serializable {
                 "s3://" + s3Bucket + "/flink-checkpoints/job1");
         this.restartAttempts   = Integer.parseInt(env("RESTART_ATTEMPTS",  "3"));
         this.restartDelayMs    = Long.parseLong(env("RESTART_DELAY_MS",    "10000"));
+        this.disableMskSink    = "true".equalsIgnoreCase(env("DISABLE_MSK_SINK", "false"));
     }
 
     private static String env(String key, String defaultValue) {
