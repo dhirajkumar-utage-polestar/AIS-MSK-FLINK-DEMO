@@ -1,0 +1,165 @@
+flowchart TD
+    %% ── Data Sources ──────────────────────────────────────────────
+    subgraph SOURCES["Data Sources"]
+        SRC1["AIS Terrestrial Receivers\n(Coast Stations / VHF)"]
+        SRC2["AIS Satellite Feeds\n(Orbcomm / Exactearth)"]
+        SRC3["AIS Roaming / Partners"]
+    end
+
+    %% ── Go Receiver ───────────────────────────────────────────────
+    subgraph RECEIVER["Go AIS Receiver (ECS Fargate)"]
+        R1["TCP/UDP Listener"]
+        R2["Kpler Line Normalizer"]
+        R3["Multi-part NMEA\nFragment Assembler"]
+        R4["MSK Producer\n(IAM Auth)"]
+        R1 --> R2 --> R3 --> R4
+    end
+
+    %% ── MSK Source Topics ─────────────────────────────────────────
+    subgraph MSK_SRC["AWS MSK — Source Topics"]
+        T1[("ais-terrestrial")]
+        T2[("ais-satellite")]
+        T3[("ais-roaming")]
+    end
+
+    %% ── Flink Job 1 ───────────────────────────────────────────────
+    subgraph JOB1["Flink Job 1 — Parser & Validator (ECS Fargate)"]
+        J1_N["NMEANormalizer\n(MapFunction)"]
+        J1_F["NMEAFragmentAssembler\n(KeyedProcessFunction)\nKey: topic:channel:seqId\nTTL: 30s"]
+        J1_P["NMEAParser\n(ProcessFunction)\nAisLib decode + tag blocks"]
+        J1_A["ASMDecoder\n(MapFunction)\nType 6 / 8 binary payloads"]
+        J1_J["Type24Joiner\n(KeyedProcessFunction)\nJoin Part-A + Part-B\nkey: MMSI  TTL: 5 min"]
+        J1_V["ValidationEngine\n(MapFunction)\nrules.yml field validation"]
+        J1_DLQ["DLQ Side Output\nais.parse.dlq"]
+
+        J1_N --> J1_F --> J1_P --> J1_A --> J1_J --> J1_V
+        J1_P -. unparseable .-> J1_DLQ
+    end
+
+    %% ── MSK Ingest Topic ──────────────────────────────────────────
+    subgraph MSK_INGEST["AWS MSK — Ingest Topic"]
+        TI[("ais.ingest\n(JSON)")]
+        TDLQ[("ais.parse.dlq")]
+    end
+
+    %% ── S3 Bronze ─────────────────────────────────────────────────
+    subgraph S3B["S3 Bronze Layer"]
+        S3_BRONZE[("s3://bucket/ais-bronze-ingest/\nyear=YYYY/month=MM/day=DD/\nParquet — Snappy")]
+    end
+
+    %% ── Flink Job 2 ───────────────────────────────────────────────
+    subgraph JOB2["Flink Job 2 — MSK Router (ECS Fargate)"]
+        J2_R["MessageTypeRouter\n(ProcessFunction)\nroute by AIS msg type"]
+        J2_E["EnrichmentJoiner\n(AsyncFunction)\nS3 vessel lookup"]
+        J2_T1[("ais.pos.class-a")]
+        J2_T2[("ais.pos.class-b")]
+        J2_T3[("ais.static")]
+        J2_T4[("ais.voyage")]
+        J2_T5[("ais.binary")]
+
+        J2_R --> J2_E
+        J2_E --> J2_T1
+        J2_E --> J2_T2
+        J2_E --> J2_T3
+        J2_E --> J2_T4
+        J2_E --> J2_T5
+    end
+
+    %% ── Flink Job 3 ───────────────────────────────────────────────
+    subgraph JOB3["Flink Job 3 — Quality Filter & Gold (ECS Fargate)"]
+        J3_Q["QualityFilter\n(FilterFunction)\nspeed, coord, MMSI range"]
+        J3_D["Deduplicator\n(KeyedProcessFunction)\nkey: MMSI+timestamp\nTTL: 10 min"]
+        J3_I["Iceberg Sink\n(Catalog: AWS Glue)\nS3 Gold Parquet ORC"]
+
+        J3_Q --> J3_D --> J3_I
+    end
+
+    %% ── Gold Storage ──────────────────────────────────────────────
+    subgraph GOLD["Gold Layer"]
+        ICE[("Apache Iceberg\ns3://bucket/ais-gold/\nTime-travel  ACID")]
+        GLUE["AWS Glue Catalog"]
+        ATH["Amazon Athena\nAd-hoc SQL"]
+        RED["Amazon Redshift\nAnalytics"]
+
+        ICE --- GLUE
+        GLUE --> ATH
+        GLUE --> RED
+    end
+
+    %% ── Observability ─────────────────────────────────────────────
+    subgraph OBS["Observability"]
+        CW["CloudWatch\nMetrics + Alarms"]
+        PROM["Prometheus\n+ Grafana"]
+        XRAY["AWS X-Ray\nTracing"]
+    end
+
+    %% ── Flow connections ──────────────────────────────────────────
+    SRC1 --> R1
+    SRC2 --> R1
+    SRC3 --> R1
+
+    R4 --> T1
+    R4 --> T2
+    R4 --> T3
+
+    T1 --> J1_N
+    T2 --> J1_N
+    T3 --> J1_N
+
+    J1_V --> TI
+    J1_DLQ --> TDLQ
+    J1_V --> S3_BRONZE
+
+    TI --> J2_R
+
+    J2_T1 --> J3_Q
+    J2_T2 --> J3_Q
+
+    J3_I --> ICE
+
+    JOB1 -.metrics.-> CW
+    JOB2 -.metrics.-> CW
+    JOB3 -.metrics.-> CW
+    JOB1 -.metrics.-> PROM
+    JOB2 -.metrics.-> PROM
+    JOB3 -.metrics.-> PROM
+
+    %% ── Fault Tolerance notes ─────────────────────────────────────
+    subgraph FT["Fault Tolerance & Reliability"]
+        FT1["Flink Checkpoints\nEXACTLY_ONCE  60s interval\nStored in S3"]
+        FT2["MSK: 3-AZ replication\nretention: 7 days\nreplay from committed offset"]
+        FT3["Restart Strategy\nFixed-delay  3 attempts\n10s delay"]
+        FT4["S3 Parquet Sink\nRolling files — 64 MB\nATOMIC rename on commit"]
+        FT5["DLQ Sink\nAll unparseable msgs\nretained for reprocessing"]
+    end
+
+    %% ── Scalability notes ─────────────────────────────────────────
+    subgraph SC["Scalability"]
+        SC1["Flink parallelism = 4\nper job (env var tunable)"]
+        SC2["MSK Auto Scaling\npartitions scale with load"]
+        SC3["ECS Fargate tasks\nhorizontal scale via ECS"]
+        SC4["S3 + Iceberg\nbottomless storage"]
+    end
+
+    %% ── Security notes ────────────────────────────────────────────
+    subgraph SEC["Security"]
+        SEC1["MSK IAM Auth\nSASL_SSL port 9098"]
+        SEC2["VPC private subnets\nno public MSK endpoint"]
+        SEC3["S3 SSE-S3 encryption\nBucket policies"]
+        SEC4["ECS Task Role\nleast-privilege IAM"]
+    end
+
+    %% ── Styling ───────────────────────────────────────────────────
+    classDef kafka fill:#FF9900,stroke:#CC7700,color:#000
+    classDef flink fill:#E6522C,stroke:#B34020,color:#fff
+    classDef s3    fill:#3F8624,stroke:#2D6118,color:#fff
+    classDef aws   fill:#232F3E,stroke:#131A22,color:#fff
+    classDef src   fill:#4A90D9,stroke:#2C6FAC,color:#fff
+    classDef note  fill:#FFF9C4,stroke:#F0C040,color:#333
+
+    class T1,T2,T3,TI,TDLQ,J2_T1,J2_T2,J2_T3,J2_T4,J2_T5 kafka
+    class J1_N,J1_F,J1_P,J1_A,J1_J,J1_V,J1_DLQ,J2_R,J2_E,J3_Q,J3_D,J3_I flink
+    class S3_BRONZE,ICE s3
+    class GLUE,ATH,RED,CW,XRAY aws
+    class SRC1,SRC2,SRC3 src
+    class FT1,FT2,FT3,FT4,FT5,SC1,SC2,SC3,SC4,SEC1,SEC2,SEC3,SEC4 note
